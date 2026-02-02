@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Kullanıcı Bilgileri</title>
+  <style>
+    body{font-family:Arial;background:#f2f2f2;margin:0;padding:0;}
+    .wrap{max-width:780px;margin:0 auto;padding:18px;}
+    .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+    .btns{display:flex;gap:10px;align-items:center;}
+    .btn{
+      border:none;cursor:pointer;padding:10px 14px;border-radius:8px;color:#fff;font-weight:700;
+      box-shadow:0 0 10px rgba(0,0,0,.10);
+    }
+    .btn-green{background:#1aa84b;}
+    .btn-red{background:#d63b3b;}
+
+    .hint{color:#666;font-size:13px;margin:8px 0 0 0;}
+
+    .card{
+      position:relative;
+      background:#fff;border-radius:10px;box-shadow:0 0 10px rgba(0,0,0,.10);
+      padding:14px;display:flex;gap:14px;align-items:center;margin-top:12px;
+    }
+    .avatar{
+      width:56px;height:56px;border-radius:12px;background:#f1f1f1;display:flex;align-items:center;justify-content:center;
+      overflow:hidden;flex:0 0 auto;
+    }
+    .meta{line-height:1.35;}
+    .name{font-size:16px;font-weight:800;color:#222;}
+    .sub{font-size:13px;color:#555;}
+    .tag{display:inline-block;margin-top:6px;font-size:12px;background:#eee;padding:3px 8px;border-radius:999px;color:#333;}
+
+    .delete-x{
+      position:absolute;top:10px;right:10px;
+      width:30px;height:30px;border-radius:8px;
+      border:none;cursor:pointer;
+      background:#ffe6e6;color:#d63b3b;font-weight:900;font-size:16px;
+      display:flex;align-items:center;justify-content:center;
+    }
+    .delete-x:hover{filter:brightness(0.95);}
+
+    a.back{display:inline-block;margin-top:14px;text-decoration:none;color:#444;}
+
+    /* Modal */
+    .modal-backdrop{
+      position:fixed;inset:0;background:rgba(0,0,0,.35);
+      display:none;align-items:center;justify-content:center;
+      padding:18px;
+    }
+    .modal{
+      width:100%;max-width:460px;background:#fff;border-radius:12px;
+      box-shadow:0 12px 40px rgba(0,0,0,.25);
+      padding:18px;
+    }
+    .modal h3{margin:0 0 10px 0;}
+    .modal p{margin:0 0 12px 0;color:#444;}
+    .modal input{
+      width:100%;padding:10px;box-sizing:border-box;margin-top:10px;border-radius:8px;border:1px solid #ddd;
+    }
+    .modal .row{display:flex;gap:10px;}
+    .modal .row input{width:100%;}
+    .modal-actions{
+      display:flex;justify-content:flex-end;gap:10px;margin-top:14px;
+    }
+    .btn-ghost{
+      background:#f0f0f0;color:#222;border:none;padding:10px 14px;border-radius:8px;cursor:pointer;font-weight:700;
+    }
+    .btn-primary{
+      background:#1aa84b;color:#fff;border:none;padding:10px 14px;border-radius:8px;cursor:pointer;font-weight:800;
+    }
+    .btn-danger{
+      background:#d63b3b;color:#fff;border:none;padding:10px 14px;border-radius:8px;cursor:pointer;font-weight:800;
+    }
+    .modal-error{color:#c00;margin-top:10px;display:none;}
+
+    /* delete mode: hide X by default */
+    .delete-x {display: none;}
+    
+    /* when delete mode is active, show X */
+    .delete-mode .delete-x {display: flex;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <h2 style="margin:0;">Kullanıcı Bilgileri</h2>
+
+      <div class="btns">
+        <!-- “Kullanıcı Çıkar” artık ayrı sayfaya gitmiyor, X butonlarıyla silme yapacağız -->
+        <button class="btn btn-red" id="btnRemoveInfo">Kullanıcı Çıkar</button>
+        <button class="btn btn-green" id="btnAddUser">Kullanıcı Ekle</button>
+      </div>
+    </div>
+
+    {% if is_admin|int != 1 %}
+     <div class="hint">Not: Kullanıcı ekleme/çıkarma işlemleri sadece admin tarafından yapılabilir.</div>
+    {% else %}
+     <div class="hint">Admin: Yeni kullanıcı ekleyebilir, kartlardaki kırmızı X ile kullanıcı çıkarabilirsin.</div>
+    {% endif %}
+
+    {% for u in users %}
+      <div class="card" data-user-id="{{ u[0] }}" data-username="{{ u[1] }}">
+        {% if is_admin and u[4] != 1 %}
+          <button class="delete-x" title="Kullanıcı çıkar" onclick="openDeleteConfirm({{ u[0] }}, '{{ u[1] }}')">X</button>
+        {% endif %}
+
+        <div class="avatar" aria-label="Bilinmeyen şahıs">
+          <svg width="46" height="46" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="unknown user">
+            <circle cx="32" cy="24" r="12" fill="#bdbdbd"/>
+            <path d="M12 56c2-12 14-18 20-18s18 6 20 18" fill="#bdbdbd"/>
+          </svg>
+        </div>
+
+        <div class="meta">
+          <div class="name">{{ u[2] if u[2] else "İsimsiz Kullanıcı" }}</div>
+          <div class="sub">Kullanıcı adı: <b>{{ u[1] }}</b></div>
+          <div class="sub">ID: <b>{{ u[3] if u[3] else ("U-" ~ u[0]) }}</b></div>
+          {% if u[4] == 1 %}
+            <div class="tag">Admin</div>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+
+    <a class="back" href="/dashboard">← Menüye dön</a>
+  </div>
+
+  <!-- Modal: Kullanıcı Ekle -->
+  <div class="modal-backdrop" id="addModalBackdrop">
+    <div class="modal">
+      <h3>Yeni Kullanıcı Ekle</h3>
+      <p>Kullanıcı bilgilerini gir.</p>
+
+      <form id="addUserForm">
+        <input type="text" name="full_name" placeholder="Ad Soyad" required>
+        <div class="row">
+          <input type="text" name="employee_id" placeholder="ID (ör: U-2001)" required>
+          <input type="text" name="new_username" placeholder="Kullanıcı adı (ör: ali.oz)" required>
+        </div>
+        <div class="modal-error" id="addError"></div>
+        <div class="modal-error" id="addSuccess" style="display:none; color:#0a7a2a;"></div>
+
+
+        <div class="modal-actions">
+          <button type="button" class="btn-ghost" onclick="closeAddModal()">Vazgeç</button>
+          <button type="submit" class="btn-primary">Devam</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Silme Onayı -->
+  <div class="modal-backdrop" id="deleteModalBackdrop">
+    <div class="modal">
+      <h3>Kullanıcı Çıkar</h3>
+      <p id="deleteText">Kullanıcıyı çıkarmayı onaylıyor musunuz?</p>
+
+      <div class="modal-error" id="deleteError"></div>
+
+      <div class="modal-actions" style="justify-content:space-between;">
+        <button type="button" class="btn-ghost" onclick="closeDeleteModal()">Vazgeç</button>
+        <button type="button" class="btn-danger" onclick="confirmDelete()">Devam</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const isAdmin = {
+      {(is_admin|int == 1)|tojson}
+    };
+    const addBackdrop = document.getElementById('addModalBackdrop');
+    const delBackdrop = document.getElementById('deleteModalBackdrop');
+    const addForm = document.getElementById('addUserForm');
+    const addError = document.getElementById('addError');
+    const addSuccess = document.getElementById('addSuccess');
+    const deleteText = document.getElementById('deleteText');
+    const deleteError = document.getElementById('deleteError');
+
+    let pendingDeleteUserId = null;
+
+    document.getElementById('btnAddUser').addEventListener('click', () => {
+      if (!isAdmin) return alert('Bu işlem için admin yetkisi gerekli.');
+      openAddModal();
+    });
+
+  let deleteMode = false;
+
+  document.getElementById('btnRemoveInfo').addEventListener('click', () => {
+    if (!isAdmin) return alert('Bu işlem için admin yetkisi gerekli.');
+    
+    deleteMode = !deleteMode;
+
+    if (deleteMode) {
+     document.body.classList.add('delete-mode');
+     alert('Silme modu açık. Kartlardaki kırmızı X ile kullanıcı çıkarabilirsin.');} 
+     else {document.body.classList.remove('delete-mode'); alert('Silme modu kapalı.');}
+  });
+
+    function openAddModal() {
+      addError.style.display = 'none';
+      addError.textContent = '';
+      addSuccess.style.display = 'none';
+      addSuccess.textContent = '';
+      addForm.reset();
+      addBackdrop.style.display = 'flex';
+    }
+
+    function closeAddModal() {
+      addBackdrop.style.display = 'none';
+    }
+
+    addBackdrop.addEventListener('click', (e) => {
+      if (e.target === addBackdrop) closeAddModal();
+    });
+
+    addForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      addError.style.display = 'none';
+      addError.textContent = '';
+
+      const formData = new FormData(addForm);
+
+      const res = await fetch('/api/users/add', {
+        method: 'POST',
+        body: formData
+      });
+
+      let data = {};
+        try {
+          data = await res.json();
+        } catch (e) {
+          if (res.ok) {
+            const card = document.querySelector(`.card[data-user-id="${pendingDeleteUserId}"]`);
+            if (card) card.remove();
+            closeDeleteModal();
+            return;
+          }
+        }
+      if (!res.ok) {
+        let msg = 'Hata oluştu.';
+        if (data.error === 'username_exists') msg = 'Bu kullanıcı adı zaten var.';
+        if (data.error === 'not_admin') msg = 'Admin yetkisi gerekli.';
+        if (data.error === 'not_logged_in') msg = 'Giriş yapman gerekiyor.';
+        addError.textContent = msg;
+        addError.style.display = 'block';
+        return;
+      }
+
+      // ✅ Başarılı → şifreyi göster, sonra sayfayı yenile
+        const pw = data.generated_password || '';
+        addSuccess.textContent = `Kullanıcı oluşturuldu. Geçici şifre: ${pw}`;
+        addSuccess.style.display = 'block';
+
+// 2 saniye sonra yenile ki kart listesi güncellensin
+setTimeout(() => window.location.reload(), 2000);
+
+    });
+
+    function openDeleteConfirm(userId, username) {
+      if (!isAdmin) return alert('Bu işlem için admin yetkisi gerekli.');
+      pendingDeleteUserId = userId;
+      deleteError.style.display = 'none';
+      deleteError.textContent = '';
+      deleteText.textContent = `"${username}" kullanıcıyı çıkarmayı onaylıyor musunuz?`;
+      delBackdrop.style.display = 'flex';
+    }
+
+    function closeDeleteModal() {
+      delBackdrop.style.display = 'none';
+      pendingDeleteUserId = null;
+    }
+
+    delBackdrop.addEventListener('click', (e) => {
+      if (e.target === delBackdrop) closeDeleteModal();
+    });
+
+    async function confirmDelete() {
+      const fd = new FormData();
+      fd.append('user_id', pendingDeleteUserId);
+
+      const res = await fetch('/api/users/delete', {
+        method: 'POST',
+        body: fd
+      });
+
+      // ✅ 1. ÖNCE status kontrolü
+      if (res.ok) {
+        const card = document.querySelector(`.card[data-user-id="${pendingDeleteUserId}"]`);
+        if (card) card.remove();
+        closeDeleteModal();
+        return;
+      }
+
+      // ❌ Sadece başarısızsa JSON oku
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (e) {}
+
+      let msg = 'Silme işlemi başarısız.';
+      if (data.error === 'cannot_delete_self') msg = 'Admin kendi hesabını silemez.';
+      deleteError.textContent = msg;
+      deleteError.style.display = 'block';
+    }
+
+
+  </script>
+</body>
+</html>
