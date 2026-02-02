@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Yeni Ürün Tanımlama</title>
+  <style>
+    body{font-family:Arial;background:#f2f2f2;margin:0;padding:0;}
+    .wrap{max-width:780px;margin:0 auto;padding:18px;}
+    .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+    .btn{border:none;cursor:pointer;padding:10px 14px;border-radius:8px;color:#fff;font-weight:800;box-shadow:0 0 10px rgba(0,0,0,.10);}
+    .btn-green{background:#1aa84b;}
+    .btn-ghost{background:#eee;color:#222;}
+    .hint{color:#666;font-size:13px;margin:8px 0 0 0;}
+
+    .modal-backdrop{
+      position:fixed;inset:0;background:rgba(0,0,0,.35);
+      display:none;align-items:center;justify-content:center;padding:18px;
+    }
+    .modal{
+      width:100%;max-width:560px;background:#fff;border-radius:12px;
+      box-shadow:0 12px 40px rgba(0,0,0,.25);padding:18px;
+    }
+    .modal h3{margin:0 0 10px 0;}
+    .modal p{margin:0 0 12px 0;color:#444;}
+    .modal input{
+      width:100%;padding:10px;box-sizing:border-box;margin-top:10px;border-radius:8px;border:1px solid #ddd;
+    }
+    .row{display:flex;gap:10px;}
+    .row > div{flex:1;}
+    .modal-actions{display:flex;justify-content:space-between;gap:10px;margin-top:14px;}
+    .modal-error{color:#c00;margin-top:10px;display:none;}
+    .preview-list{background:#f7f7f7;border:1px solid #eee;border-radius:10px;padding:12px;}
+    .preview-item{margin:6px 0;color:#222;}
+    a.back{display:inline-block;margin-top:14px;text-decoration:none;color:#444;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <h2 style="margin:0;">Yeni Ürün Tanımlama</h2>
+      <button class="btn btn-green" id="btnOpen">Ürün Kaydı Aç</button>
+    </div>
+    <div class="hint">Ürün bilgilerini gir, sonra önizle → onayla → stok ekranına git.</div>
+
+    <a class="back" href="/dashboard">← Menüye dön</a>
+  </div>
+
+  <!-- Modal 1: Form -->
+  <div class="modal-backdrop" id="formBackdrop">
+    <div class="modal">
+      <h3>Ürün Kayıt</h3>
+      <p>Çıkış Tarihi opsiyonel. Ürünü kaydeden otomatik alınır.</p>
+
+      <form id="productForm">
+        <input name="product_code" id="productCode" placeholder="Ürün Kodu (barkod)" required>
+        <input name="product_name" placeholder="Ürün adı" required>
+
+        <div class="row">
+          <div><input type="number" step="0.01" name="product_weight" placeholder="Ürün ağırlığı" required></div>
+          <div><input type="number" name="quantity" placeholder="Adet" required></div>
+        </div>
+
+        <input name="location" placeholder="Ürün konumu" required>
+
+        <div class="row">
+          <div><input type="date" name="entry_date" required></div>
+          <div><input type="date" name="exit_date" placeholder="Çıkış Tarihi (opsiyonel)"></div>
+        </div>
+
+        <div class="modal-error" id="formError"></div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="btnCancel1">Vazgeç</button>
+          <button type="submit" class="btn btn-green">Ürünü kaydet</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 2: Preview -->
+  <div class="modal-backdrop" id="previewBackdrop">
+    <div class="modal">
+      <h3>Önizleme</h3>
+      <p>Bilgileri kontrol et. Doğruysa onayla.</p>
+
+      <div class="preview-list" id="previewList"></div>
+      <div class="modal-error" id="previewError"></div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="btnCancel2">Vazgeç</button>
+        <button type="button" class="btn btn-green" id="btnConfirm">Onayla</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const formBackdrop = document.getElementById('formBackdrop');
+    const previewBackdrop = document.getElementById('previewBackdrop');
+    const productForm = document.getElementById('productForm');
+    const formError = document.getElementById('formError');
+    const previewList = document.getElementById('previewList');
+    const previewError = document.getElementById('previewError');
+
+    let pendingPayload = null;
+
+    document.getElementById('btnOpen').addEventListener('click', () => openForm());
+
+    function openForm(){
+      formError.style.display = 'none';
+      formError.textContent = '';
+      productForm.reset();
+      formBackdrop.style.display = 'flex';
+      focusBarcodeInput();
+    }
+    function closeForm(){ formBackdrop.style.display = 'none'; }
+    function openPreview(){
+      previewError.style.display = 'none';
+      previewError.textContent = '';
+      previewBackdrop.style.display = 'flex';
+    }
+    function closePreview(){ previewBackdrop.style.display = 'none'; }
+
+    document.getElementById('btnCancel1').addEventListener('click', closeForm);
+    document.getElementById('btnCancel2').addEventListener('click', () => {
+      closePreview();
+      openForm();
+    });
+
+    formBackdrop.addEventListener('click', (e) => { if (e.target === formBackdrop) closeForm(); });
+    previewBackdrop.addEventListener('click', (e) => { if (e.target === previewBackdrop) closePreview(); });
+
+    const productCodeInput = document.getElementById('productCode');
+
+    function focusBarcodeInput(){
+      if(productCodeInput){
+        productCodeInput.focus();
+        productCodeInput.select();
+      }
+    }
+
+    // Barcode scanners like GM65 behave like a fast keyboard.
+    // This listens globally while the form is open and fills the product code.
+    let scanBuffer = "";
+    let scanTimer = null;
+
+    function commitScan(){
+      const value = scanBuffer.trim();
+      scanBuffer = "";
+      if(value && productCodeInput){
+        productCodeInput.value = value;
+        productCodeInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if(formBackdrop.style.display !== 'flex') return;
+
+      const target = e.target;
+      const isTypingField = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
+
+      if(e.key === 'Enter'){
+        if(scanBuffer.length){
+          e.preventDefault();
+          commitScan();
+        }
+        return;
+      }
+
+      if(e.key.length === 1){
+        if(!isTypingField){
+          scanBuffer += e.key;
+          if(scanTimer) clearTimeout(scanTimer);
+          scanTimer = setTimeout(commitScan, 80);
+        }
+      }
+    });
+
+    productForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      formError.style.display = 'none';
+      formError.textContent = '';
+
+      const fd = new FormData(productForm);
+
+      const required = ["product_code","product_name","product_weight","quantity","location","entry_date"];
+      for (const k of required){
+        const v = (fd.get(k) || "").toString().trim();
+        if(!v){
+          formError.textContent = "Lütfen tüm zorunlu alanları doldur.";
+          formError.style.display = "block";
+          return;
+        }
+      }
+
+      const w = parseFloat(fd.get("product_weight"));
+      const q = parseInt(fd.get("quantity"), 10);
+      if(!(w > 0)){
+        formError.textContent = "Ürün ağırlığı 0'dan büyük olmalı.";
+        formError.style.display = "block";
+        return;
+      }
+      if(!(q > 0)){
+        formError.textContent = "Adet 0'dan büyük olmalı.";
+        formError.style.display = "block";
+        return;
+      }
+
+      pendingPayload = fd;
+
+      const items = [
+        ["Ürün Kodu", fd.get("product_code")],
+        ["Ürün adı", fd.get("product_name")],
+        ["Ürün ağırlığı", fd.get("product_weight")],
+        ["Adet", fd.get("quantity")],
+        ["Ürün konumu", fd.get("location")],
+        ["Giriş tarihi", fd.get("entry_date")],
+        ["Çıkış Tarihi", fd.get("exit_date") || "(boş)"],
+        ["Ürünü kaydeden", "(otomatik)"]
+      ];
+
+      previewList.innerHTML = items.map(([k,v]) =>
+        `<div class="preview-item"><b>${k}:</b> ${String(v)}</div>`
+      ).join("");
+
+      closeForm();
+      openPreview();
+    });
+
+    document.getElementById('btnConfirm').addEventListener('click', async () => {
+      previewError.style.display = 'none';
+      previewError.textContent = '';
+
+      if(!pendingPayload){
+        previewError.textContent = "Beklenmeyen hata. Form verisi yok.";
+        previewError.style.display = "block";
+        return;
+      }
+
+      const res = await fetch('/api/products/add', {
+        method: 'POST',
+        body: pendingPayload
+      });
+
+      let data = {};
+      try { data = await res.json(); } catch(e){}
+
+      if(!res.ok){
+        let msg = "Kayıt başarısız.";
+        if(data.error === "not_logged_in") msg = "Giriş yapman gerekiyor.";
+        if(data.error === "missing_fields") msg = "Eksik alan var.";
+        if(data.error === "invalid_weight") msg = "Ağırlık geçersiz.";
+        if(data.error === "invalid_quantity") msg = "Adet geçersiz.";
+        previewError.textContent = msg;
+        previewError.style.display = "block";
+        return;
+      }
+
+      alert("Ürün başarılı bir şekilde kaydedilmiştir.");
+      window.location.href = "/stok-durum";
+    });
+  </script>
+</body>
+</html>

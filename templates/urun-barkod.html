@@ -1,0 +1,332 @@
+﻿<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Ürün Barkod Okuma</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body{font-family:Arial;background:#f2f2f2;margin:0;padding:0;}
+    .wrap{max-width:900px;margin:0 auto;padding:18px;}
+    .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap;}
+    .card{background:#fff;border-radius:12px;box-shadow:0 0 10px rgba(0,0,0,.08);padding:16px;margin-bottom:14px;}
+    .btn{border:none;cursor:pointer;padding:10px 14px;border-radius:8px;color:#fff;font-weight:800;box-shadow:0 0 10px rgba(0,0,0,.10);}
+    .btn-green{background:#1aa84b;}
+    .btn-red{background:#d61f1f;}
+    .btn-ghost{background:#eee;color:#222;}
+    .row{display:flex;gap:10px;flex-wrap:wrap;}
+    .row > div{flex:1;min-width:160px;}
+    input, select{width:100%;padding:10px;box-sizing:border-box;border-radius:8px;border:1px solid #ddd;}
+    .hint{color:#666;font-size:13px;margin:6px 0 0 0;}
+    .error{color:#c00;font-size:14px;margin-top:8px;display:none;}
+    .ok{color:#1a7f3d;font-size:14px;margin-top:8px;display:none;}
+    .video-wrap{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+    video{width:240px;max-width:100%;border-radius:10px;background:#000;}
+    .badge{background:#e7f5ff;color:#0b5cab;padding:6px 10px;border-radius:999px;font-size:12px;}
+    a.back{display:inline-block;text-decoration:none;color:#444;}
+    @media (max-width:600px){
+      .row > div{min-width:100%;}
+      video{width:100%;}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <h2 style="margin:0;">Ürün Barkod Okuma</h2>
+      <a class="back" href="/dashboard">← Menüye dön</a>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 10px 0;">Barkod Okutma (Telefon Kamerası)</h3>
+      <div class="video-wrap">
+        <video id="video" autoplay playsinline></video>
+        <div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-green" id="btnStart">Kamerayı Aç</button>
+            <button class="btn btn-ghost" id="btnStop">Durdur</button>
+          </div>
+          <div class="hint">Tarayıcı izin ister. Barkodu kameraya tut.</div>
+          <div class="hint" id="supportHint"></div>
+          <div class="badge" id="lastBarcode">Son barkod: -</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="sectionAdd">
+      <h3 style="margin:0 0 10px 0;">Ürün Ekle</h3>
+      <form id="formAdd">
+        <input data-barcode-input name="barcode" placeholder="Barkod" required>
+        <input name="product_name" placeholder="Ürün adı" required>
+        <div class="row">
+          <div><input type="number" step="0.01" name="product_weight" placeholder="Ürün ağırlığı" required></div>
+          <div><input type="number" name="quantity" placeholder="Adet" required></div>
+        </div>
+        <input name="location" placeholder="Ürün konumu" required>
+        <div class="row">
+          <div><input type="date" name="entry_date" required></div>
+          <div><input type="date" name="exit_date" placeholder="Çıkış Tarihi (opsiyonel)"></div>
+        </div>
+        <div class="error" id="addError"></div>
+        <div class="ok" id="addOk"></div>
+        <div style="margin-top:10px;">
+          <button class="btn btn-green" type="submit">Kaydet</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card" id="sectionDelete">
+      <h3 style="margin:0 0 10px 0;">Ürün Sil</h3>
+      <form id="formDelete">
+        <input data-barcode-input name="barcode" placeholder="Barkod" required>
+        <div class="error" id="deleteError"></div>
+        <div class="ok" id="deleteOk"></div>
+        <div style="margin-top:10px;">
+          <button class="btn btn-red" type="submit">Sil</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card" id="sectionInfo">
+      <h3 style="margin:0 0 10px 0;">Ürün Bilgileri</h3>
+      <form id="formInfo">
+        <input data-barcode-input name="barcode" placeholder="Barkod" required>
+        <div style="margin-top:10px;">
+          <button class="btn btn-ghost" type="submit">Bilgileri Getir</button>
+        </div>
+        <div class="error" id="infoError"></div>
+        <div class="ok" id="infoOk"></div>
+        <div id="infoBox" style="margin-top:10px;"></div>
+      </form>
+    </div>
+
+    <div class="card" id="sectionUpdate">
+      <h3 style="margin:0 0 10px 0;">Ürün Bilgi Güncelleme</h3>
+      <form id="formUpdate">
+        <input data-barcode-input name="barcode" placeholder="Barkod" required>
+        <div style="margin-top:8px;">
+          <button class="btn btn-ghost" type="button" id="btnLoad">Barkoddan Yükle</button>
+        </div>
+        <input name="product_name" placeholder="Ürün adı" required>
+        <div class="row">
+          <div><input type="number" step="0.01" name="product_weight" placeholder="Ürün ağırlığı" required></div>
+          <div><input type="number" name="quantity" placeholder="Adet" required></div>
+        </div>
+        <input name="location" placeholder="Ürün konumu" required>
+        <div class="row">
+          <div><input type="date" name="entry_date" required></div>
+          <div><input type="date" name="exit_date" placeholder="Çıkış Tarihi (opsiyonel)"></div>
+        </div>
+        <div class="error" id="updateError"></div>
+        <div class="ok" id="updateOk"></div>
+        <div style="margin-top:10px;">
+          <button class="btn btn-green" type="submit">Güncelle</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const video = document.getElementById('video');
+    const btnStart = document.getElementById('btnStart');
+    const btnStop = document.getElementById('btnStop');
+    const supportHint = document.getElementById('supportHint');
+    const lastBarcode = document.getElementById('lastBarcode');
+    const barcodeInputs = document.querySelectorAll('[data-barcode-input]');
+
+    let stream = null;
+    let scanning = false;
+    let detector = null;
+    let lastValue = '';
+
+    function setBarcode(value){
+      if(!value) return;
+      lastValue = value;
+      barcodeInputs.forEach(i => i.value = value);
+      lastBarcode.textContent = `Son barkod: ${value}`;
+    }
+
+    async function startCamera(){
+      if(scanning) return;
+      if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+        supportHint.textContent = 'Kamera desteği yok.';
+        return;
+      }
+      try{
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        video.srcObject = stream;
+        scanning = true;
+        if('BarcodeDetector' in window){
+          detector = detector || new BarcodeDetector({
+            formats: ['ean_13','ean_8','code_128','qr_code','upc_a','upc_e']
+          });
+          supportHint.textContent = 'Barkod algılayıcı hazır.';
+          requestAnimationFrame(scanLoop);
+        }else{
+          supportHint.textContent = 'Tarayıcı BarkodDetector desteklemiyor. Barkodu elle gir.';
+        }
+      }catch(e){
+        supportHint.textContent = 'Kamera açılamadı. İzin verildiğinden emin ol.';
+      }
+    }
+
+    function stopCamera(){
+      scanning = false;
+      if(stream){
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+      }
+    }
+
+    async function scanLoop(){
+      if(!scanning || !detector) return;
+      if(video.readyState >= 2){
+        try{
+          const barcodes = await detector.detect(video);
+          if(barcodes && barcodes.length){
+            const value = barcodes[0].rawValue || '';
+            if(value && value !== lastValue){
+              setBarcode(value);
+              stopCamera();
+              return;
+            }
+          }
+        }catch(e){
+          // ignore detector errors
+        }
+      }
+      requestAnimationFrame(scanLoop);
+    }
+
+    btnStart.addEventListener('click', startCamera);
+    btnStop.addEventListener('click', stopCamera);
+
+    // Add product
+    const formAdd = document.getElementById('formAdd');
+    const addError = document.getElementById('addError');
+    const addOk = document.getElementById('addOk');
+    formAdd.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      addError.style.display = 'none';
+      addOk.style.display = 'none';
+      const fd = new FormData(formAdd);
+      const res = await fetch('/api/products/add_by_barcode', { method: 'POST', body: fd });
+      let data = {};
+      try { data = await res.json(); } catch(e) {}
+      if(!res.ok){
+        addError.textContent = data.error === 'not_logged_in' ? 'Giriş yapman gerekiyor.' : 'Kayıt başarısız.';
+        addError.style.display = 'block';
+        return;
+      }
+      addOk.textContent = 'Ürün başarıyla kaydedildi.';
+      addOk.style.display = 'block';
+    });
+
+    // Delete product
+    const formDelete = document.getElementById('formDelete');
+    const deleteError = document.getElementById('deleteError');
+    const deleteOk = document.getElementById('deleteOk');
+    formDelete.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      deleteError.style.display = 'none';
+      deleteOk.style.display = 'none';
+      const fd = new FormData(formDelete);
+      const barcode = (fd.get('barcode') || '').toString().trim();
+      if(!barcode){
+        deleteError.textContent = 'Barkod boş olamaz.';
+        deleteError.style.display = 'block';
+        return;
+      }
+      if(!confirm('Bu ürünü silmek istediğine emin misin?')) return;
+      const res = await fetch('/api/products/delete_by_barcode', { method: 'POST', body: fd });
+      let data = {};
+      try { data = await res.json(); } catch(e) {}
+      if(!res.ok){
+        deleteError.textContent = data.error === 'not_found' ? 'Ürün bulunamadı.' : 'Silme başarısız.';
+        deleteError.style.display = 'block';
+        return;
+      }
+      deleteOk.textContent = 'Ürün silindi.';
+      deleteOk.style.display = 'block';
+    });
+
+    // Product info
+    const formInfo = document.getElementById('formInfo');
+    const infoError = document.getElementById('infoError');
+    const infoOk = document.getElementById('infoOk');
+    const infoBox = document.getElementById('infoBox');
+    formInfo.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      infoError.style.display = 'none';
+      infoOk.style.display = 'none';
+      infoBox.innerHTML = '';
+      const fd = new FormData(formInfo);
+      const res = await fetch('/api/products/info_by_barcode', { method: 'POST', body: fd });
+      let data = {};
+      try { data = await res.json(); } catch(e) {}
+      if(!res.ok){
+        infoError.textContent = data.error === 'not_found' ? 'Ürün bulunamadı.' : 'Bilgi alınamadı.';
+        infoError.style.display = 'block';
+        return;
+      }
+      const p = data.product || {};
+      infoBox.innerHTML = `
+        <div><b>Ürün adı:</b> ${p.product_name || ''}</div>
+        <div><b>Barkod:</b> ${p.product_code || ''}</div>
+        <div><b>Ağırlık:</b> ${p.product_weight || ''}</div>
+        <div><b>Adet:</b> ${p.quantity || ''}</div>
+        <div><b>Konum:</b> ${p.location || ''}</div>
+        <div><b>Giriş tarihi:</b> ${p.entry_date || ''}</div>
+        <div><b>Çıkış tarihi:</b> ${p.exit_date || ''}</div>
+      `;
+      infoOk.textContent = 'Bilgiler gösterildi.';
+      infoOk.style.display = 'block';
+    });
+
+    // Update product
+    const formUpdate = document.getElementById('formUpdate');
+    const updateError = document.getElementById('updateError');
+    const updateOk = document.getElementById('updateOk');
+    const btnLoad = document.getElementById('btnLoad');
+
+    btnLoad.addEventListener('click', async () => {
+      updateError.style.display = 'none';
+      updateOk.style.display = 'none';
+      const fd = new FormData(formUpdate);
+      const res = await fetch('/api/products/info_by_barcode', { method: 'POST', body: fd });
+      let data = {};
+      try { data = await res.json(); } catch(e) {}
+      if(!res.ok){
+        updateError.textContent = data.error === 'not_found' ? 'Ürün bulunamadı.' : 'Bilgi alınamadı.';
+        updateError.style.display = 'block';
+        return;
+      }
+      const p = data.product || {};
+      formUpdate.product_name.value = p.product_name || '';
+      formUpdate.product_weight.value = p.product_weight || '';
+      formUpdate.quantity.value = p.quantity || '';
+      formUpdate.location.value = p.location || '';
+      formUpdate.entry_date.value = p.entry_date || '';
+      formUpdate.exit_date.value = p.exit_date || '';
+      updateOk.textContent = 'Bilgiler yüklendi.';
+      updateOk.style.display = 'block';
+    });
+
+    formUpdate.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      updateError.style.display = 'none';
+      updateOk.style.display = 'none';
+      const fd = new FormData(formUpdate);
+      const res = await fetch('/api/products/update_by_barcode', { method: 'POST', body: fd });
+      let data = {};
+      try { data = await res.json(); } catch(e) {}
+      if(!res.ok){
+        updateError.textContent = data.error === 'not_found' ? 'Ürün bulunamadı.' : 'Güncelleme başarısız.';
+        updateError.style.display = 'block';
+        return;
+      }
+      updateOk.textContent = 'Ürün güncellendi.';
+      updateOk.style.display = 'block';
+    });
+  </script>
+</body>
+</html>
